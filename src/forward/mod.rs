@@ -4,6 +4,7 @@ use std::sync::Arc;
 use anyhow::{Ok, Result};
 use tokio::sync::Mutex;
 use tracing::info;
+use webrtc::ice::udp_network::UDPNetwork;
 use webrtc::ice_transport::ice_candidate::RTCIceCandidateInit;
 use webrtc::ice_transport::ice_server::RTCIceServer;
 use webrtc::peer_connection::peer_connection_state::RTCPeerConnectionState;
@@ -50,6 +51,7 @@ impl PeerForward {
     pub async fn set_publish(
         &self,
         offer: RTCSessionDescription,
+        udp_network: UDPNetwork,
     ) -> Result<(RTCSessionDescription, String)> {
         if self.internal.publish_is_some().await {
             return Err(AppError::ResourceAlreadyExists(
@@ -66,7 +68,7 @@ impl PeerForward {
         }
         let peer = self
             .internal
-            .new_publish_peer(MediaInfo::try_from(offer.unmarshal()?)?)
+            .new_publish_peer(udp_network, MediaInfo::try_from(offer.unmarshal()?)?)
             .await?;
         let internal = Arc::downgrade(&self.internal);
         let pc = Arc::downgrade(&peer);
@@ -120,13 +122,14 @@ impl PeerForward {
     pub async fn add_subscribe(
         &self,
         offer: RTCSessionDescription,
+        udp_network: UDPNetwork
     ) -> Result<(RTCSessionDescription, String)> {
         if !self.internal.publish_is_ok().await {
             return Err(anyhow::anyhow!("publish is not ok"));
         }
         let peer = self
             .internal
-            .new_subscription_peer(MediaInfo::try_from(offer.unmarshal()?)?)
+            .new_subscription_peer(udp_network, MediaInfo::try_from(offer.unmarshal()?)?)
             .await?;
         let internal = Arc::downgrade(&self.internal);
         let pc = Arc::downgrade(&peer);

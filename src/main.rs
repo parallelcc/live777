@@ -29,6 +29,8 @@ use tracing::info_span;
 use tracing::{debug, error, info};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
+use webrtc::ice::udp_mux::{UDPMuxDefault, UDPMuxParams};
+use webrtc::ice::udp_network::UDPNetwork;
 use webrtc::peer_connection::sdp::session_description::RTCSessionDescription;
 
 use crate::auth::ManyValidate;
@@ -66,6 +68,13 @@ async fn main() {
         .init();
     let addr = SocketAddr::from_str(&cfg.listen).expect("invalid listen address");
     info!("Server listening on {}", addr);
+    let udp_network = UDPNetwork::Muxed(
+        UDPMuxDefault::new(
+            UDPMuxParams::new(
+                tokio::net::UdpSocket::bind("0.0.0.0:52000").await.unwrap()
+            )
+        )
+    );
     let ice_servers = cfg
         .ice_servers
         .clone()
@@ -73,7 +82,7 @@ async fn main() {
         .map(|i| i.into())
         .collect();
     let app_state = AppState {
-        paths: Arc::new(Manager::new(ice_servers)),
+        paths: Arc::new(Manager::new(udp_network, ice_servers)),
         config: cfg.clone(),
     };
     let auth_layer = ValidateRequestHeaderLayer::custom(ManyValidate::new(cfg.auth));

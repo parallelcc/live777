@@ -10,6 +10,8 @@ use webrtc::api::setting_engine::SettingEngine;
 use webrtc::api::APIBuilder;
 use webrtc::data::data_channel::DataChannel;
 use webrtc::data_channel::RTCDataChannel;
+use webrtc::ice::network_type::NetworkType::Udp4;
+use webrtc::ice::udp_network::UDPNetwork;
 use webrtc::ice_transport::ice_candidate::RTCIceCandidateInit;
 use webrtc::ice_transport::ice_server::RTCIceServer;
 use webrtc::interceptor::registry::Registry;
@@ -278,6 +280,7 @@ impl PeerForwardInternal {
 
     pub(crate) async fn new_publish_peer(
         &self,
+        udp_network: UDPNetwork,
         media_info: MediaInfo,
     ) -> Result<Arc<RTCPeerConnection>> {
         if media_info.video_transceiver.0 > 1 && media_info.audio_transceiver.0 > 1 {
@@ -303,6 +306,8 @@ impl PeerForwardInternal {
         registry = register_default_interceptors(registry, &mut m)?;
         let mut s = SettingEngine::default();
         s.detach_data_channels();
+        s.set_udp_network(udp_network);
+        s.set_network_types(vec![Udp4]);
         let api = APIBuilder::new()
             .with_media_engine(m)
             .with_interceptor_registry(registry)
@@ -364,6 +369,7 @@ impl PeerForwardInternal {
 impl PeerForwardInternal {
     pub(crate) async fn new_subscription_peer(
         &self,
+        udp_network: UDPNetwork,
         media_info: MediaInfo,
     ) -> Result<Arc<RTCPeerConnection>> {
         if !self.publish_is_some().await {
@@ -378,6 +384,8 @@ impl PeerForwardInternal {
         registry = register_default_interceptors(registry, &mut m)?;
         let mut s = SettingEngine::default();
         s.detach_data_channels();
+        s.set_udp_network(udp_network);
+        s.set_network_types(vec![Udp4]);
         let api = APIBuilder::new()
             .with_media_engine(m)
             .with_interceptor_registry(registry)

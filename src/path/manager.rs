@@ -7,6 +7,7 @@ use webrtc::{
     ice_transport::ice_server::RTCIceServer,
     peer_connection::sdp::session_description::RTCSessionDescription,
 };
+use webrtc::ice::udp_network::UDPNetwork;
 
 use crate::dto::req::ChangeResource;
 use crate::forward::info::Layer;
@@ -15,6 +16,7 @@ use crate::AppError;
 
 #[derive(Clone)]
 pub struct Manager {
+    udp_network: UDPNetwork,
     ice_servers: Vec<RTCIceServer>,
     paths: Arc<RwLock<HashMap<String, PeerForward>>>,
 }
@@ -22,8 +24,9 @@ pub struct Manager {
 pub type Response = (RTCSessionDescription, String);
 
 impl Manager {
-    pub fn new(ice_servers: Vec<RTCIceServer>) -> Self {
+    pub fn new(udp_network: UDPNetwork, ice_servers: Vec<RTCIceServer>) -> Self {
         Manager {
+            udp_network,
             ice_servers,
             paths: Default::default(),
         }
@@ -34,10 +37,10 @@ impl Manager {
         let forward = paths.get(&path).cloned();
         drop(paths);
         if let Some(forward) = forward {
-            forward.set_publish(offer).await
+            forward.set_publish(offer, self.udp_network.clone()).await
         } else {
             let forward = PeerForward::new(path.clone(), self.ice_servers.clone());
-            let (sdp, key) = forward.set_publish(offer).await?;
+            let (sdp, key) = forward.set_publish(offer, self.udp_network.clone()).await?;
             let mut paths = self.paths.write().await;
             if paths.contains_key(&path) {
                 return Err(anyhow::anyhow!("resource already exists"));
@@ -53,7 +56,7 @@ impl Manager {
         let forward = paths.get(&path).cloned();
         drop(paths);
         if let Some(forward) = forward {
-            forward.add_subscribe(offer).await
+            forward.add_subscribe(offer, self.udp_network.clone()).await
         } else {
             Err(AppError::ResourceNotFound(
                 ("The requested resource not exist,please check the path and try again.")
