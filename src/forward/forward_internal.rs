@@ -1,4 +1,5 @@
 use std::borrow::ToOwned;
+use std::net::IpAddr;
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -308,6 +309,14 @@ impl PeerForwardInternal {
         s.detach_data_channels();
         s.set_udp_network(udp_network);
         s.set_network_types(vec![Udp4]);
+        s.set_ip_filter(Box::new(|ip : IpAddr| -> bool {
+            if let IpAddr::V4(ipv4) = ip {
+                if ipv4.is_private() {
+                    return false
+                }
+            }
+            true
+        }));
         let api = APIBuilder::new()
             .with_media_engine(m)
             .with_interceptor_registry(registry)
@@ -386,6 +395,14 @@ impl PeerForwardInternal {
         s.detach_data_channels();
         s.set_udp_network(udp_network);
         s.set_network_types(vec![Udp4]);
+        s.set_ip_filter(Box::new(|ip : IpAddr| -> bool {
+            if let IpAddr::V4(ipv4) = ip {
+                if ipv4.is_private() {
+                    return false
+                }
+            }
+            true
+        }));
         let api = APIBuilder::new()
             .with_media_engine(m)
             .with_interceptor_registry(registry)
